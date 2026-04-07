@@ -133,6 +133,33 @@ Optional query:
 
 - `/admin/issuers?status=approved`
 
+#### GET `/admin/issuers/{issuer_id}`
+
+Headers: `Authorization: Bearer <admin_token>`
+
+Use this endpoint for the "View Details" button in admin panel.
+
+Example:
+
+- `/admin/issuers/5`
+
+Response:
+
+```json
+{
+  "id": 5,
+  "college_name": "New Tech College",
+  "college_address": "Ring Road, Bhopal",
+  "college_id": "NTC-BPL-002",
+  "document": "https://example.com/docs/ntc-affiliation.pdf",
+  "document_id": "NTC-DOC-002",
+  "phone_number": "+919000000002",
+  "email": "issuer-new-fields@example.com",
+  "status": "pending",
+  "wallet_address": null
+}
+```
+
 #### POST `/admin/whitelist-wallet`
 
 Headers: `Authorization: Bearer <admin_token>`

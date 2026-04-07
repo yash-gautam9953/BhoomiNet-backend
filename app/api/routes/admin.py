@@ -51,6 +51,18 @@ def list_issuers(
     return issuer_service.list_issuers(session, status)
 
 
+@router.get("/issuers/{issuer_id}", response_model=IssuerResponse)
+def get_issuer_details(
+    issuer_id: int,
+    session: Annotated[Session, Depends(get_session)],
+    _admin=Depends(require_admin),
+) -> IssuerResponse:
+    try:
+        return issuer_service.get_issuer_details(session, issuer_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
 @router.post("/whitelist-wallet", response_model=IssuerResponse)
 def whitelist_wallet(
     payload: WhitelistWalletRequest,

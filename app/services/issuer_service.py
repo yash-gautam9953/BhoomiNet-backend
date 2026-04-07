@@ -85,6 +85,14 @@ def list_issuers(session: Session, status: IssuerStatus | None = None) -> list[I
     return [_to_issuer_response(issuer) for issuer in issuers]
 
 
+def get_issuer_details(session: Session, issuer_id: int) -> IssuerResponse:
+    issuer = session.get(Issuer, issuer_id)
+    if not issuer:
+        raise ValueError("Issuer not found")
+
+    return _to_issuer_response(issuer)
+
+
 def whitelist_wallet(session: Session, issuer_id: int, wallet_address: str) -> IssuerResponse:
     _validate_wallet(wallet_address)
 

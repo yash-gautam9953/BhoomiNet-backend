@@ -100,6 +100,7 @@ uvicorn app.main:app --reload
 - `POST /admin/approve/{issuer_id}`
 - `PATCH /admin/issuers/{issuer_id}/status`
 - `GET /admin/issuers`
+- `GET /admin/issuers/{issuer_id}`
 - `POST /admin/whitelist-wallet`
 
 For `PATCH /admin/issuers/{issuer_id}/status`, allowed values are:
