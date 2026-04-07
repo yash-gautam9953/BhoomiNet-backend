@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlmodel import Session
 
 from app.api.deps import TokenUser, require_issuer
@@ -8,12 +8,26 @@ from app.db.session import get_session
 from app.schemas.certificate import (
     CertificateCreateRequest,
     CertificateCreateResponse,
+    CertificateHistoryResponse,
     CertificateTokenLinkRequest,
     CertificateTokenLinkResponse,
+    CertificateVerifyResponse,
 )
 from app.services import certificate_service
 
 router = APIRouter()
+
+
+@router.get("/verify/{token_id}", response_model=CertificateVerifyResponse)
+def verify_certificate_by_token_id(
+    token_id: str,
+    session: Annotated[Session, Depends(get_session)],
+) -> CertificateVerifyResponse:
+    try:
+        return certificate_service.verify_certificate_by_token_id(session, token_id)
+    except ValueError as exc:
+        status_code = status.HTTP_404_NOT_FOUND if "not found" in str(exc).lower() else status.HTTP_400_BAD_REQUEST
+        raise HTTPException(status_code=status_code, detail=str(exc)) from exc
 
 
 @router.post("/create", response_model=CertificateCreateResponse)
@@ -50,3 +64,22 @@ def link_token(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+
+
+@router.get("/history", response_model=CertificateHistoryResponse)
+def get_certificate_history(
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[TokenUser, Depends(require_issuer)],
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> CertificateHistoryResponse:
+    try:
+        return certificate_service.get_certificate_history(
+            session=session,
+            issuer_id=current_user.issuer_id,
+            limit=limit,
+            offset=offset,
+        )
+    except ValueError as exc:
+        status_code = status.HTTP_404_NOT_FOUND if "not found" in str(exc).lower() else status.HTTP_400_BAD_REQUEST
+        raise HTTPException(status_code=status_code, detail=str(exc)) from exc

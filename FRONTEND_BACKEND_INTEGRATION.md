@@ -254,6 +254,151 @@ Response:
 
 Frontend should use `cid` and `hash` for wallet-side minting (MetaMask flow).
 
+#### GET `/certificate/history`
+
+Headers: `Authorization: Bearer <issuer_token>`
+
+Optional query params:
+
+- `limit` (default: 50, max: 200)
+- `offset` (default: 0)
+
+Response:
+
+```json
+{
+  "issuer_id": 3,
+  "total_generated": 12,
+  "total_minted": 10,
+  "limit": 50,
+  "offset": 0,
+  "certificates": [
+    {
+      "certificate_id": 12,
+      "cid": "Qm...",
+      "hash": "0x...",
+      "token_id": "12345",
+      "created_at": "2026-04-07T12:25:10.123456Z"
+    }
+  ]
+}
+```
+
+#### GET `/certificate/verify/{token_id}`
+
+Public endpoint. No auth token required.
+
+Example:
+
+- `/certificate/verify/12345`
+
+Response:
+
+```json
+{
+  "token_id": "12345",
+  "certificate_id": 12,
+  "cid": "Qm...",
+  "hash": "0x...",
+  "metadata_url": "https://gateway.pinata.cloud/ipfs/Qm...",
+  "created_at": "2026-04-07T12:25:10.123456Z",
+  "issuer_id": 3,
+  "issuer_name": "ABC University",
+  "metadata_accessible": true,
+  "metadata_hash": "0x...",
+  "metadata_hash_matches": true,
+  "recomputed_hash": "0x...",
+  "recomputed_hash_matches": true,
+  "certificate_payload": {
+    "roll_number": "UNI123",
+    "student_name": "Akshit Singh",
+    "course_program": "B.Tech",
+    "passing_year": 2026,
+    "cgpa": 8.74
+  },
+  "is_verified": true
+}
+```
+
+Verification field meanings:
+
+- `token_id`: On-chain token id submitted by user.
+- `certificate_id`: Backend certificate row id linked to this token.
+- `cid`: IPFS CID linked to the certificate.
+- `hash`: Hash stored in backend for this certificate.
+- `metadata_url`: Gateway URL used to fetch IPFS metadata.
+- `metadata_accessible`: `true` if IPFS metadata is reachable and valid JSON.
+- `metadata_hash`: `hash` value found inside metadata JSON (if present).
+- `metadata_hash_matches`: `true` when metadata hash equals backend hash.
+- `recomputed_hash`: Hash recomputed by backend from metadata fields.
+- `recomputed_hash_matches`: `true` when recomputed hash equals backend hash.
+- `certificate_payload`: Normalized payload extracted from metadata.
+- `is_verified`: Final result. `true` only when all verification checks pass.
+
+Demo response: Verified certificate
+
+```json
+{
+  "token_id": "12345",
+  "certificate_id": 12,
+  "cid": "QmValidCid111",
+  "hash": "0x9aabccddeeff00112233445566778899aabbccddeeff001122334455667788",
+  "metadata_url": "https://gateway.pinata.cloud/ipfs/QmValidCid111",
+  "created_at": "2026-04-07T12:25:10.123456Z",
+  "issuer_id": 3,
+  "issuer_name": "ABC University",
+  "metadata_accessible": true,
+  "metadata_hash": "0x9aabccddeeff00112233445566778899aabbccddeeff001122334455667788",
+  "metadata_hash_matches": true,
+  "recomputed_hash": "0x9aabccddeeff00112233445566778899aabbccddeeff001122334455667788",
+  "recomputed_hash_matches": true,
+  "certificate_payload": {
+    "roll_number": "UNI123",
+    "student_name": "Akshit Singh",
+    "course_program": "B.Tech",
+    "passing_year": 2026,
+    "cgpa": 8.74
+  },
+  "is_verified": true
+}
+```
+
+Demo response: Tampered or mismatched metadata
+
+```json
+{
+  "token_id": "12345",
+  "certificate_id": 12,
+  "cid": "QmValidCid111",
+  "hash": "0x9aabccddeeff00112233445566778899aabbccddeeff001122334455667788",
+  "metadata_url": "https://gateway.pinata.cloud/ipfs/QmValidCid111",
+  "created_at": "2026-04-07T12:25:10.123456Z",
+  "issuer_id": 3,
+  "issuer_name": "ABC University",
+  "metadata_accessible": true,
+  "metadata_hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "metadata_hash_matches": false,
+  "recomputed_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+  "recomputed_hash_matches": false,
+  "certificate_payload": {
+    "roll_number": "UNI123",
+    "student_name": "Changed Name",
+    "course_program": "B.Tech",
+    "passing_year": 2026,
+    "cgpa": 8.74
+  },
+  "is_verified": false
+}
+```
+
+Demo response: Token id not found
+
+```json
+{
+  "detail": "Certificate not found for the provided token ID"
+}
+```
+
 ## 5) Recommended Frontend Flow
 
 1. Issuer signs up via `/issuer/register` (status starts as `pending`)
@@ -300,6 +445,54 @@ async function createCertificate(token, payload) {
 
   return res.json();
 }
+
+async function getCertificateHistory(token, limit = 50, offset = 0) {
+  const res = await fetch(
+    `${API_BASE}/certificate/history?limit=${limit}&offset=${offset}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Certificate history fetch failed");
+  }
+
+  return res.json();
+}
+
+async function verifyByTokenId(tokenId) {
+  const res = await fetch(
+    `${API_BASE}/certificate/verify/${encodeURIComponent(tokenId)}`,
+    {
+      method: "GET",
+    },
+  );
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Certificate verification failed");
+  }
+
+  return res.json();
+}
+
+// Demo UI decision logic
+function mapVerifyResult(result) {
+  if (result.is_verified) {
+    return { status: "VERIFIED", color: "green" };
+  }
+
+  if (result.metadata_accessible === false) {
+    return { status: "UNVERIFIED_IPFS_UNREACHABLE", color: "amber" };
+  }
+
+  return { status: "UNVERIFIED_HASH_MISMATCH", color: "red" };
+}
 ```
 
 ## 7) Common Errors and Meanings
@@ -317,3 +510,5 @@ async function createCertificate(token, payload) {
 - Handle `401/403` globally and redirect to login
 - Validate form inputs before API call
 - Keep `issue_date` in `YYYY-MM-DD` format
+- For verification page: accept `token_id` input and call public verify endpoint
+- Display both final status (`is_verified`) and reason flags (`metadata_hash_matches`, `recomputed_hash_matches`)

@@ -138,6 +138,8 @@ For `PATCH /admin/issuers/{issuer_id}/status`, allowed values are:
 
 - `POST /certificate/create`
 - `POST /certificate/link-token`
+- `GET /certificate/history`
+- `GET /certificate/verify/{token_id}`
 
 Request body example for certificate creation:
 
@@ -169,6 +171,63 @@ After frontend mints on Polygon, send token id to backend:
 {
   "certificate_id": 12,
   "token_id": "12345"
+}
+```
+
+Issuer certificate history with counts:
+
+`GET /certificate/history?limit=50&offset=0`
+
+Response shape:
+
+```json
+{
+  "issuer_id": 3,
+  "total_generated": 12,
+  "total_minted": 10,
+  "limit": 50,
+  "offset": 0,
+  "certificates": [
+    {
+      "certificate_id": 12,
+      "cid": "Qm...",
+      "hash": "0x...",
+      "token_id": "12345",
+      "created_at": "2026-04-07T12:25:10.123456Z"
+    }
+  ]
+}
+```
+
+Public verification by token id:
+
+`GET /certificate/verify/12345`
+
+Response shape:
+
+```json
+{
+  "token_id": "12345",
+  "certificate_id": 12,
+  "cid": "Qm...",
+  "hash": "0x...",
+  "metadata_url": "https://gateway.pinata.cloud/ipfs/Qm...",
+  "created_at": "2026-04-07T12:25:10.123456Z",
+  "issuer_id": 3,
+  "issuer_name": "ABC University",
+  "metadata_accessible": true,
+  "metadata_hash": "0x...",
+  "metadata_hash_matches": true,
+  "recomputed_hash": "0x...",
+  "recomputed_hash_matches": true,
+  "certificate_payload": {
+    "roll_number": "UNI123",
+    "student_name": "Akshit Singh",
+    "course_program": "B.Tech",
+    "passing_year": 2026,
+    "cgpa": 8.74
+  },
+  "is_verified": true
 }
 ```
 
