@@ -1,6 +1,6 @@
 # Frontend Integration Guide
 
-This guide is for frontend developers who need to consume the Bhoomi backend APIs.
+This guide is for frontend developers who need to consume the Provectus backend APIs.
 
 ## 1) Base URLs
 
@@ -41,7 +41,7 @@ Request:
 ```json
 {
   "email": "admin@example.com",
-  "password": "bhoominet"
+  "password": "provectus"
 }
 ```
 

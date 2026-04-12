@@ -12,7 +12,7 @@ class Settings(BaseSettings):
         case_sensitive=True,
     )
 
-    APP_NAME: str = "Bhoomi Certificate Backend"
+    APP_NAME: str = "Provectus Certificate Backend"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
 
@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_HOURS: int = 8
 
-    ADMIN_EMAIL: str = "admin@bhoomi.local"
+    ADMIN_EMAIL: str = "admin@provectus.local"
     ADMIN_PASSWORD: str = "change_admin_password"
 
     PINATA_JWT: str = ""

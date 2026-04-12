@@ -1,42 +1,46 @@
-# Bhoomi Certificate Backend
+# Provectus Certificate Backend
 
-Production-ready FastAPI backend for issuer onboarding and certificate metadata/IPFS workflows.
+Production-focused FastAPI backend for issuer onboarding, certificate metadata generation, IPFS storage, and token-based verification.
 
-For frontend integration, see `FRONTEND_BACKEND_INTEGRATION.md`.
+For frontend integration details, see `FRONTEND_BACKEND_INTEGRATION.md`.
 
-## Responsibilities
+## What This Service Does
 
-This backend is intentionally scoped to:
+- Authenticates admin and issuers using JWT bearer tokens.
+- Handles issuer registration, approval workflow, and wallet linking.
+- Generates canonical certificate payload hash and uploads metadata to Pinata IPFS.
+- Stores certificate records and links on-chain token id after frontend minting.
+- Verifies issued certificate metadata integrity by token id.
 
-- Admin and issuer authentication (JWT)
-- Issuer registration and approval workflows
-- Certificate metadata hash generation and Pinata IPFS upload
-- Returning `cid` and `hash` to frontend for MetaMask-based minting
-
-This backend does **not** mint on-chain certificates. Blockchain minting must be handled by frontend wallet flows.
+This backend does not mint certificates on-chain. Minting is handled by frontend wallet flows.
 
 ## Tech Stack
 
 - FastAPI
-- SQLModel + PostgreSQL
-- JWT (`python-jose`)
-- Pinata IPFS API (`requests`)
+- SQLModel + SQLAlchemy
+- PostgreSQL (primary) and sqlite compatibility for local sync logic
+- python-jose (JWT)
+- passlib + PBKDF2 password hashing support
+- requests (Pinata + metadata fetch)
 
-## Folder Structure
+## Project Structure
 
 ```text
 app/
-  main.py
-  core/
-    config.py
-    security.py
+  main.py                    # FastAPI app, CORS, middleware, exception handler
   api/
-    deps.py
+    deps.py                  # auth dependencies (current user, role guards)
     routes/
       auth.py
       admin.py
       issuer.py
       certificate.py
+  core/
+    config.py                # env-driven settings
+    security.py              # password hashing + JWT encode/decode
+  db/
+    session.py               # engine + session dependency
+    base.py                  # create_all + schema sync helpers
   models/
     issuer.py
     certificate.py
@@ -47,63 +51,28 @@ app/
   services/
     auth_service.py
     issuer_service.py
-    ipfs_service.py
     certificate_service.py
-  db/
-    session.py
-    base.py
+    ipfs_service.py
   utils/
     hash.py
     qr.py
 ```
 
-## Environment Variables
-
-Required:
-
-- `PINATA_JWT`
-- `JWT_SECRET`
-- `PINATA_BASE_URL`
-
-Also used:
-
-- `IPFS_GATEWAY_BASE_URL`
-- `DATABASE_URL`
-- `ADMIN_EMAIL`
-- `ADMIN_PASSWORD`
-- `ACCESS_TOKEN_EXPIRE_HOURS`
-
-## Setup
-
-1. Install dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
-2. Ensure PostgreSQL database exists and `DATABASE_URL` is correct.
-
-3. Run API:
-
-```bash
-uvicorn app.main:app --reload
-```
-
-## API Flow
+## API Surface
 
 ### Auth
 
-- `POST /auth/login`
+- POST `/auth/login`
 
 ### Admin
 
-- `POST /admin/approve/{issuer_id}`
-- `PATCH /admin/issuers/{issuer_id}/status`
-- `GET /admin/issuers`
-- `GET /admin/issuers/{issuer_id}`
-- `POST /admin/whitelist-wallet`
+- POST `/admin/approve/{issuer_id}`
+- PATCH `/admin/issuers/{issuer_id}/status`
+- GET `/admin/issuers`
+- GET `/admin/issuers/{issuer_id}`
+- POST `/admin/whitelist-wallet`
 
-For `PATCH /admin/issuers/{issuer_id}/status`, allowed values are:
+Allowed status values for issuer update:
 
 - `pending`
 - `approved`
@@ -111,130 +80,141 @@ For `PATCH /admin/issuers/{issuer_id}/status`, allowed values are:
 
 ### Issuer
 
-- `POST /issuer/register`
-- `GET /issuer/me`
-- `POST /issuer/connect-wallet`
-- `GET /issuer/wallet-status`
-- `GET /issuer/issued-certificate-count`
-
-`POST /issuer/register` request body fields:
-
-- `college_name`
-- `college_address`
-- `college_id`
-- `document`
-- `document_id`
-- `phone_number`
-- `email`
-- `password`
-
-`password` is required because issuer authentication currently uses email + password in `POST /auth/login`.
-
-`POST /auth/login` for issuer now also returns wallet connectivity fields:
-
-- `issuer_id`
-- `wallet_connected`
-- `wallet_address`
+- POST `/issuer/register`
+- GET `/issuer/me`
+- POST `/issuer/connect-wallet`
+- GET `/issuer/wallet-status`
+- GET `/issuer/issued-certificate-count`
 
 ### Certificate
 
-- `POST /certificate/create`
-- `POST /certificate/link-token`
-- `GET /certificate/history`
-- `GET /certificate/verify/{token_id}`
+- POST `/certificate/create`
+- POST `/certificate/link-token`
+- GET `/certificate/history`
+- GET `/certificate/verify/{token_id}`
 
-Request body example for certificate creation:
+## Authentication and Roles
 
-```json
-{
-  "roll_number": "UNI123",
-  "student_name": "Akshit Singh",
-  "course_program": "B.Tech",
-  "passing_year": 2026,
-  "cgpa": 8.74
-}
+- Admin role:
+  - Approve/reject issuers
+  - Review issuer records
+  - Whitelist wallet
+- Issuer role:
+  - Access own profile
+  - Link wallet
+  - Create and manage certificate records
+
+JWT is expected as:
+
+- `Authorization: Bearer <access_token>`
+
+## Environment Variables
+
+Configure with `.env` in repository root.
+
+### Security-Critical (must set in production)
+
+- `JWT_SECRET`
+  - Use a long random value (do not keep default fallback).
+- `ADMIN_EMAIL`
+- `ADMIN_PASSWORD`
+  - Use a strong secret and rotate periodically.
+- `PINATA_JWT`
+  - Required for metadata upload to Pinata.
+
+### Core Runtime
+
+- `DATABASE_URL`
+  - Example: `postgresql+psycopg://user:password@host:5432/dbname`
+- `JWT_ALGORITHM` (default: `HS256`)
+- `ACCESS_TOKEN_EXPIRE_HOURS` (default: `8`)
+- `DEBUG` (default: `False`)
+
+### External Integrations
+
+- `PINATA_BASE_URL` (default: `https://api.pinata.cloud`)
+- `IPFS_GATEWAY_BASE_URL` (default: `https://gateway.pinata.cloud/ipfs`)
+- `POLYGON_RPC_URL` (currently kept for ecosystem compatibility)
+
+### CORS
+
+- `CORS_ORIGINS`
+  - Supports JSON array or comma-separated string.
+- `CORS_ALLOW_ORIGIN_REGEX`
+
+Production recommendation: restrict CORS to exact frontend origins only.
+
+## Production Setup
+
+### 1. Prerequisites
+
+- Python 3.11+
+- PostgreSQL instance
+- Valid Pinata JWT
+
+### 2. Install Dependencies
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
 ```
 
-Response shape:
+### 3. Configure Environment
 
-```json
-{
-  "certificate_id": 12,
-  "cid": "Qm...",
-  "hash": "0x...",
-  "metadata_url": "https://gateway.pinata.cloud/ipfs/Qm...",
-  "token_id": null
-}
+- Create/update `.env`
+- Set all security-critical variables
+- Verify `DATABASE_URL` connectivity
+
+### 4. Start Service
+
+Development:
+
+```bash
+uvicorn app.main:app --reload
 ```
 
-After frontend mints on Polygon, send token id to backend:
+Production (basic multi-worker):
 
-```json
-{
-  "certificate_id": 12,
-  "token_id": "12345"
-}
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2
 ```
 
-Issuer certificate history with counts:
+### 5. Expose Behind Reverse Proxy
 
-`GET /certificate/history?limit=50&offset=0`
+- Use Nginx/Caddy/ingress controller for TLS termination.
+- Restrict inbound access to required ports.
+- Enable request size/time limits at proxy layer.
 
-Response shape:
+## Startup and Database Behavior
 
-```json
-{
-  "issuer_id": 3,
-  "total_generated": 12,
-  "total_minted": 10,
-  "limit": 50,
-  "offset": 0,
-  "certificates": [
-    {
-      "certificate_id": 12,
-      "cid": "Qm...",
-      "hash": "0x...",
-      "token_id": "12345",
-      "created_at": "2026-04-07T12:25:10.123456Z"
-    }
-  ]
-}
-```
+On startup, the app does:
 
-Public verification by token id:
+- `SQLModel.metadata.create_all(engine)`
+- lightweight column sync for selected issuer/certificate columns
 
-`GET /certificate/verify/12345`
+This is useful for bootstrapping, but for strict production change control, add versioned migrations (for example Alembic) before large schema evolution.
 
-Response shape:
+## Operational Notes
 
-```json
-{
-  "token_id": "12345",
-  "certificate_id": 12,
-  "cid": "Qm...",
-  "hash": "0x...",
-  "metadata_url": "https://gateway.pinata.cloud/ipfs/Qm...",
-  "created_at": "2026-04-07T12:25:10.123456Z",
-  "issuer_id": 3,
-  "issuer_name": "ABC University",
-  "metadata_accessible": true,
-  "metadata_hash": "0x...",
-  "metadata_hash_matches": true,
-  "recomputed_hash": "0x...",
-  "recomputed_hash_matches": true,
-  "certificate_payload": {
-    "roll_number": "UNI123",
-    "student_name": "Akshit Singh",
-    "course_program": "B.Tech",
-    "passing_year": 2026,
-    "cgpa": 8.74
-  },
-  "is_verified": true
-}
-```
+- Request logging middleware records request start/end with timing and request id.
+- Global unhandled exceptions return HTTP 500 with generic detail.
+- Certificate verification endpoint fetches metadata from IPFS gateway and validates hash integrity.
 
-## Notes
+## Security Checklist for Production
 
-- Issuer must be approved before login and certificate creation.
-- Wallet format validation expects Ethereum-style `0x` address with 42 chars.
-- Errors are mapped to proper HTTP status codes across routes.
+- Replace all default secrets and credentials from config fallbacks.
+- Use strong admin password and rotate credentials.
+- Keep `DEBUG=false`.
+- Use managed PostgreSQL with TLS (`sslmode=require` where applicable).
+- Restrict CORS origins.
+- Rotate and protect `PINATA_JWT`.
+
+## Useful URLs
+
+- OpenAPI docs: `/docs`
+- OpenAPI JSON: `/openapi.json`
+
+## License and Ownership
+
+Internal project for Provectus certificate workflows.
