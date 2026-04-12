@@ -115,6 +115,7 @@ For `PATCH /admin/issuers/{issuer_id}/status`, allowed values are:
 - `GET /issuer/me`
 - `POST /issuer/connect-wallet`
 - `GET /issuer/wallet-status`
+- `GET /issuer/issued-certificate-count`
 
 `POST /issuer/register` request body fields:
 

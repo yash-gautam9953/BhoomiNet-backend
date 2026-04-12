@@ -36,6 +36,7 @@ class Settings(BaseSettings):
             "http://127.0.0.1:3000",
             "http://localhost:5173",
             "http://127.0.0.1:5173",
+            "https://matrix3-0-frontend-odgw.vercel.app"
         ]
     )
     CORS_ALLOW_ORIGIN_REGEX: str | None = r"^https:\/\/.*\.devtunnels\.ms$"

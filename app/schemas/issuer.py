@@ -30,6 +30,11 @@ class IssuerResponse(BaseModel):
     wallet_address: str | None = None
 
 
+class IssuerIssuedCertificateCountResponse(BaseModel):
+    issuer_id: int
+    issued_certificates: int
+
+
 class WalletConnectRequest(BaseModel):
     wallet_address: str = Field(min_length=10, max_length=100)
 

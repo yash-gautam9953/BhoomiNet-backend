@@ -1,9 +1,12 @@
+from sqlalchemy import func
 from sqlmodel import Session, select
 
 from app.core.security import hash_password
+from app.models.certificate import Certificate
 from app.models.issuer import Issuer
 from app.schemas.issuer import (
     IssuerApprovalResponse,
+    IssuerIssuedCertificateCountResponse,
     IssuerRegisterRequest,
     IssuerResponse,
     IssuerStatus,
@@ -144,4 +147,22 @@ def get_wallet_status(session: Session, issuer_id: int) -> WalletStatusResponse:
         issuer_status=issuer.status,
         wallet_connected=bool(issuer.wallet_address),
         wallet_address=issuer.wallet_address,
+    )
+
+
+def get_issued_certificate_count(
+    session: Session,
+    issuer_id: int,
+) -> IssuerIssuedCertificateCountResponse:
+    issuer = session.get(Issuer, issuer_id)
+    if not issuer:
+        raise ValueError("Issuer not found")
+
+    issued_certificates = session.exec(
+        select(func.count()).select_from(Certificate).where(Certificate.issuer_id == issuer_id)
+    ).one()
+
+    return IssuerIssuedCertificateCountResponse(
+        issuer_id=issuer_id,
+        issued_certificates=int(issued_certificates),
     )

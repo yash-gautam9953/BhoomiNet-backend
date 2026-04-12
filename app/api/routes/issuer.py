@@ -6,6 +6,7 @@ from sqlmodel import Session
 from app.api.deps import TokenUser, require_issuer
 from app.db.session import get_session
 from app.schemas.issuer import (
+    IssuerIssuedCertificateCountResponse,
     IssuerRegisterRequest,
     IssuerResponse,
     WalletConnectRequest,
@@ -60,5 +61,16 @@ def get_wallet_status(
 ) -> WalletStatusResponse:
     try:
         return issuer_service.get_wallet_status(session, current_user.issuer_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.get("/issued-certificate-count", response_model=IssuerIssuedCertificateCountResponse)
+def get_issued_certificate_count(
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[TokenUser, Depends(require_issuer)],
+) -> IssuerIssuedCertificateCountResponse:
+    try:
+        return issuer_service.get_issued_certificate_count(session, current_user.issuer_id)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc

@@ -225,6 +225,19 @@ Response:
 }
 ```
 
+#### GET `/issuer/issued-certificate-count`
+
+Headers: `Authorization: Bearer <issuer_token>`
+
+Response:
+
+```json
+{
+  "issuer_id": 3,
+  "issued_certificates": 12
+}
+```
+
 ### Certificate Protected (Issuer)
 
 #### POST `/certificate/create`
